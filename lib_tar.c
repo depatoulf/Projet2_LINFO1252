@@ -324,7 +324,7 @@ int add_file(int tar_fd, char *filename, uint8_t *src, size_t len) {
     tar_header_t header;
     memset(&header, 0, sizeof(tar_header_t));
     strcpy(header.name, filename);
-    snprintf(header.size, sizeof(header.size), "%011lo", (unsigned int) len);
+    snprintf(header.size, sizeof(header.size), "%011o", (unsigned int) len);
     header.typeflag = REGTYPE;
 
     memcpy(header.magic, "ustar\0", 6);
@@ -362,7 +362,6 @@ int add_file(int tar_fd, char *filename, uint8_t *src, size_t len) {
     fprintf(stderr, "write\n");
     return -2;
     }
-    
+
     return 0;
 }
-
