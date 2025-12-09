@@ -1,5 +1,29 @@
 #include "lib_tar.h"
 
+
+int isEOFBlock(tar_header_t *header) {
+    for (int i = 0; i < 512; i++) {
+        if (((unsigned char *) header)[i] != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int calculate_checksum(tar_header_t *header) {
+    char saved [8];
+    memcpy(saved, header->chksum, 8);
+    memset(header->chksum, ' ', 8);
+
+    unsigned int sum = 0;
+    for (int i = 0; i < 512; i++) {
+        sum += ((unsigned char *)header)[i];
+    }
+    memcpy(header->chksum, saved, 8);
+
+    return sum;
+}
+
 /**
  * Checks whether the archive is valid.
  *
@@ -16,9 +40,55 @@
  *         -3 if the archive contains a header with an invalid checksum value
  */
 int check_archive(int tar_fd) {
-    // TODO
-    return 0;
-}
+    if (tar_fd < 0) {
+        fprintf(stderr, "Description de fichier invalide\n");
+        return -4;
+    }
+    if(lseek(tar_fd, 0, SEEK_SET) < 0) {
+        fprintf(stderr, "lseek\n");
+        return -4;
+    }
+
+    tar_header_t header;
+    int header_count = 0;
+    ssize_t bytes_read;
+    bytes_read = read(tar_fd, &header, 512);
+    if (bytes_read != 512) {
+        fprintf(stderr, "read\n");
+        return -4;
+    }
+
+    while (bytes_read == 512){
+        if (isEOFBlock(&header) == 0){
+            retrun header_count;
+        }  
+        
+        //magic verification
+        if (strncmp(header.magic, TMAGIC, 5) != 0 || header.magic[5] != '\0') {
+            return -1;
+        }
+        // version verification
+        if (strncmp(header.version, TVERSION, 2) != 0) {
+            return -2;
+        }
+        // checksum verification
+        unsigned int expected = TAR_INT(header.chksum);
+        unsigned int actual = calculate_checksum(&header);
+        if (expected != actual) {
+            return -3;
+        }
+        // continue to next header
+        size_t file_size = TAR_INT(header.size);
+        size_t blocks_to_skip = (file_size + 511) / 512; 
+        if (lseek(tar_fd, blocks_to_skip * 512, SEEK_CUR) < 0) {
+            fprintf(stderr, "lseek\n");
+            return -4;
+        }
+        bytes_read = read(tar_fd, &header, 512);
+        header_count++;
+
+    }
+    return header_count;
 
 /**
  * Checks whether an entry exists in the archive.
