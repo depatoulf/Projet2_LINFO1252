@@ -272,9 +272,11 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
         if (realpath_len == 0 || strncmp(fullpath, real_path, realpath_len)==0){
             const char *rest = fullpath + realpath_len;
             if (strcmp(fullpath, real_path) != 0){
+                /*
                 if (rest[0]== '/' ){
                     rest++;
                 }
+                */
                 const char *slash = strchr(rest, '/');
                 if (slash == NULL || slash[1] == '\0') {
                     if (count < *no_entries){
