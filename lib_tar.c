@@ -223,9 +223,10 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
         fprintf(stderr, "lseek\n");
         return -1;
     }
+    char real_path[256];
     char *root = "";
     if (path == NULL){
-        path = root;
+        strcpy(real_path, root);
     }
     else {
         if (exists(tar_fd, path) != 1 ) {
@@ -241,15 +242,21 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
         if (!is_dir(tar_fd, path) ){
             return -1;
         }
+        size_t length = strlen(path);
+        if (path[length - 1] != '/') {
+            snprintf(real_path, sizeof(real_path), "%s/", path);
+        } else {
+            snprintf(real_path, sizeof(real_path), "%s", path);
+        }
     }
     int count = 0;
     tar_header_t header;
-    ssize_t bytes_read;
-    bytes_read = read(tar_fd, &header, 512);
+    ssize_t bytes_read = read(tar_fd, &header, 512);
     if (bytes_read != 512) {
         fprintf(stderr, "read\n");
         return -1;
     }
+    int realpath_len = strlen(real_path);
     while (bytes_read == 512){
         if (isEOFBlock(&header) == 0){
             break;
@@ -259,18 +266,21 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
         if (header.prefix[0] != '\0') {
             snprintf(fullpath, sizeof(fullpath), "%s/%s", header.prefix, header.name);
         } else {
-            strncpy(fullpath, header.name, sizeof(fullpath));
+            snprintf(fullpath, sizeof(fullpath), "%s", header.name);
         }
 
-        size_t length = strlen(path);
-        if (strncmp(fullpath, path, length) == 0 && strcmp(fullpath, path) != 0) {
-            char *subpath = header.name + length;
-            if (strchr(subpath, '/') == NULL || (strchr(subpath, '/') - subpath) == strlen(subpath) - 1) {
-                if (count < *no_entries) {
-                    strcpy(entries[count], header.name);
-                    count++;
-                } else {
-                    break;
+        if (realpath_len == 0 || strncmp(fullpath, real_path, realpath_len)==0){
+            const char *rest = fullpath + realpath_len;
+            if (strcmp(fullpath, real_path) != 0){
+                if (rest[0]== '/' ){
+                    rest++;
+                }
+                const char *slash = strchr(rest, '/');
+                if (slash == NULL || slash[1] == '\0') {
+                    if (count < *no_entries){
+                        strcpy(entries[count], fullpath);
+                        count++;
+                    }
                 }
             }
         }
@@ -285,10 +295,7 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
     }
     *no_entries = count;
     return 1;
-    
-    } 
-    return -1;
-}
+} 
 
 /**
  * Adds a file at the end of the archive, at the archive's root level.
