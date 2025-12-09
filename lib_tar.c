@@ -47,8 +47,10 @@ int find_header(int tar_fd, char *path, tar_header_t *out) {
         if (isEOFBlock(&header) == 0){
             return 0;
         }  
-        if (strcmp(header.name, path) == 0) {
-            memcpy(out, &header, sizeof(tar_header_t));
+        if (path != NULL && path[0] != '\0' && strcmp(header.name, path) == 0) {
+            if (out != NULL){
+                memcpy(out, &header, sizeof(tar_header_t));
+            }
             return 1;
         }
         // continue to next header
@@ -225,7 +227,7 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
     }
     char real_path[256];
     char *root = "";
-    if (path == NULL){
+    if (path == NULL || path[0] == '\0') {
         strcpy(real_path, root);
     }
     else {
@@ -235,6 +237,9 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
         if (is_symlink(tar_fd, path)) {
             tar_header_t linked_header;
             if (find_header(tar_fd, path, &linked_header) < 0) {
+                return -1;
+            }
+            if (!exists(tar_fd, linked_header.linkname)) {
                 return -1;
             }
             path = linked_header.linkname;
@@ -332,7 +337,9 @@ int add_file(int tar_fd, char *filename, uint8_t *src, size_t len) {
 
     memset(header.chksum, ' ', 8);
     unsigned int sum = calculate_checksum(&header);
-    snprintf(header.chksum, sizeof(header.chksum), "%06o", sum);
+    snprintf(header.chksum, 8, "%06o", sum);
+    header.chksum[6] = '\0';
+    header.chksum[7] = ' ';
 
 
     if (write(tar_fd, &header, 512) != 512) {
