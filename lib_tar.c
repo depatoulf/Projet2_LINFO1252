@@ -79,8 +79,7 @@ int check_archive(int tar_fd) {
  *         any other value otherwise.
  */
 int exists(int tar_fd, char *path) {
-    // TODO
-    return 0;
+    return find_header(tar_fd, path, NULL);
 }
 
 /**
@@ -93,8 +92,11 @@ int exists(int tar_fd, char *path) {
  *         any other value otherwise.
  */
 int is_dir(int tar_fd, char *path) {
-    // TODO
-    return 0;
+    tar_header_t out;
+    if (find_header(tar_fd, path, &out) <= 0) {
+        return 0;
+    }
+    return out.typeflag == DIR_TYPE;
 }
 
 /**
@@ -107,8 +109,11 @@ int is_dir(int tar_fd, char *path) {
  *         any other value otherwise.
  */
 int is_file(int tar_fd, char *path) {
-    // TODO
-    return 0;
+    tar_header_t out;
+    if (find_header(tar_fd, path, &out) <= 0) {
+        return 0;
+    }
+    return out.typeflag == REG_TYPE || out.typeflag == AREG_TYPE;
 }
 
 /**
@@ -120,8 +125,11 @@ int is_file(int tar_fd, char *path) {
  *         any other value otherwise.
  */
 int is_symlink(int tar_fd, char *path) {
-    // TODO
-    return 0;
+    tar_header_t out;
+    if (find_header(tar_fd, path, &out) <= 0) {
+        return 0;
+    }
+    return out.typeflag == SYM_TYPE;
 }
 
 /**
@@ -195,4 +203,41 @@ int calculate_checksum(tar_header_t *header) {
     memcpy(header->chksum, saved, 8);
 
     return sum;
+}
+
+int find_header(int tar_fd, char *path, tar_header_t *out) {
+    if (lseek(tar_fd, 0, SEEK_SET) < 0) {
+        fprintf(stderr, "lseek\n");
+        return -1;
+    }
+
+    tar_header_t header;
+    int header_count = 0;
+    ssize_t bytes_read;
+    bytes_read = read(tar_fd, &header, 512);
+    if (bytes_read != 512) {
+        fprintf(stderr, "read\n");
+        return -1;
+    }
+
+    while (bytes_read == 512){
+        if (isEOFBlock(&header) == 0){
+            return 0;
+        }  
+        if (strcmp(header.name, path) == 0) {
+            memcpy(out, &header, sizeof(tar_header_t));
+            return 1;
+        }
+        // continue to next header
+        size_t file_size = TAR_INT(header.size);
+        size_t blocks_to_skip = (file_size + 511) / 512; 
+        if (lseek(tar_fd, blocks_to_skip * 512, SEEK_CUR) < 0) {
+            fprintf(stderr, "lseek\n");
+            return -1;
+        }
+        bytes_read = read(tar_fd, &header, 512);
+        header_count++;
+
+    }
+    return 0;
 }
