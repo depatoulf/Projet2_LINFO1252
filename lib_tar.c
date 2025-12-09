@@ -314,7 +314,55 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
  *         -2 if an error occurred
  */
 int add_file(int tar_fd, char *filename, uint8_t *src, size_t len) {
-    // TODO
+    if (exists(tar_fd, filename)) {
+        return -1;
+    }
+    if (lseek(tar_fd, 0, SEEK_END) < 0) {
+        fprintf(stderr, "lseek\n");
+        return -2;
+    }
+    tar_header_t header;
+    memset(&header, 0, sizeof(tar_header_t));
+    strcpy(header.name, filename);
+    snprintf(header.size, sizeof(header.size), "%011lo", (unsigned int) len);
+    header.typeflag = REGTYPE;
+
+    memcpy(header.magic, "ustar\0", 6);
+    memcpy(header.version, TVERSION, 2);
+
+    memset(header.chksum, ' ', 8);
+    unsigned int sum = calculate_checksum(&header);
+    snprintf(header.chksum, sizeof(header.chksum), "%06o", sum);
+
+
+    if (write(tar_fd, &header, 512) != 512) {
+        fprintf(stderr, "write\n");
+        return -2;
+    }
+
+    if (write(tar_fd, src, len) != (ssize_t) len) {
+        fprintf(stderr, "write\n");
+        return -2;
+    }
+
+    size_t pad = (512 - (len % 512)) % 512;
+    if (pad) {
+        char zeros[512] = {0};
+        if (write(tar_fd, zeros, pad) != (ssize_t) pad) {
+            fprintf(stderr, "write\n");
+            return -2;  
+        }
+    }
+    char zero[512] = {0};
+    if (write(tar_fd, zero, 512) != 512) {
+        fprintf(stderr, "write\n");
+        return -2;  
+    }
+    if (write(tar_fd, zero, 512) != 512) {
+    fprintf(stderr, "write\n");
+    return -2;
+    }
+    
     return 0;
 }
 
