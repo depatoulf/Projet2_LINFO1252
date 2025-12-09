@@ -1,29 +1,8 @@
 #include "lib_tar.h"
-
-
-int isEOFBlock(tar_header_t *header) {
-    for (int i = 0; i < 512; i++) {
-        if (((unsigned char *) header)[i] != 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-int calculate_checksum(tar_header_t *header) {
-    char saved [8];
-    memcpy(saved, header->chksum, 8);
-    memset(header->chksum, ' ', 8);
-
-    unsigned int sum = 0;
-    for (int i = 0; i < 512; i++) {
-        sum += ((unsigned char *)header)[i];
-    }
-    memcpy(header->chksum, saved, 8);
-
-    return sum;
-}
-
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 /**
  * Checks whether the archive is valid.
  *
@@ -191,4 +170,29 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
 int add_file(int tar_fd, char *filename, uint8_t *src, size_t len) {
     // TODO
     return 0;
+}
+
+// helper functions
+
+int isEOFBlock(tar_header_t *header) {
+    for (int i = 0; i < 512; i++) {
+        if (((unsigned char *) header)[i] != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int calculate_checksum(tar_header_t *header) {
+    char saved [8];
+    memcpy(saved, header->chksum, 8);
+    memset(header->chksum, ' ', 8);
+
+    unsigned int sum = 0;
+    for (int i = 0; i < 512; i++) {
+        sum += ((unsigned char *)header)[i];
+    }
+    memcpy(header->chksum, saved, 8);
+
+    return sum;
 }
