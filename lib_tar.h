@@ -144,4 +144,8 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries);
  */
 int add_file(int tar_fd, char *filename, uint8_t *src, size_t len);
 
+int calculate_checksum(tar_header_t *header);
+int find_header(int tar_fd, char *path, tar_header_t *out);
+int isEOFBlock(tar_header_t *header);
+
 #endif

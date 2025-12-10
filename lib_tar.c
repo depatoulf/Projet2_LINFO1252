@@ -8,10 +8,10 @@
 int isEOFBlock(tar_header_t *header) {
     for (int i = 0; i < 512; i++) {
         if (((unsigned char *) header)[i] != 0) {
-            return 1;
+            return 0;
         }
     }
-    return 0;
+    return 1;
 }
 
 int calculate_checksum(tar_header_t *header) {
@@ -44,10 +44,10 @@ int find_header(int tar_fd, char *path, tar_header_t *out) {
     }
 
     while (bytes_read == 512){
-        if (isEOFBlock(&header) == 0){
+        if (isEOFBlock(&header) == 1){
             return 0;
         }  
-        if (path != NULL && path[0] != '\0' && strcmp(header.name, path) == 0) {
+        if (strcmp(header.name, path) == 0) {
             if (out != NULL){
                 memcpy(out, &header, sizeof(tar_header_t));
             }
@@ -102,7 +102,7 @@ int check_archive(int tar_fd) {
     }
 
     while (bytes_read == 512){
-        if (isEOFBlock(&header) == 0){
+        if (isEOFBlock(&header) == 1){
             return header_count;
         }  
         
@@ -263,7 +263,7 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
     }
     int realpath_len = strlen(real_path);
     while (bytes_read == 512){
-        if (isEOFBlock(&header) == 0){
+        if (isEOFBlock(&header) == 1){
             break;
         }
         //on check si il y a un prefix
