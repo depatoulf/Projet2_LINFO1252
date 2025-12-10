@@ -249,7 +249,7 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
         }
         if (is_symlink(tar_fd, path)) {
             tar_header_t linked_header;
-            if (find_header(tar_fd, path, &linked_header) < 0) {
+            if (find_header(tar_fd, path, &linked_header) != 1) {
                 return -1;
             }
             /*
@@ -353,6 +353,101 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
  *         -2 if an error occurred
  */
 int add_file(int tar_fd, char *filename, uint8_t *src, size_t len) {
+    if (exists(tar_fd, filename)){
+        return -1;
+    }
+
+    // Aller à la fin du fichier
+    off_t offset = lseek(tar_fd, 0, SEEK_END);
+    if (offset < 0){
+        fprintf(stderr, "lseek\n");
+        return -2;
+    }
+
+    // Lire le dernier bloc
+    off_t last_pos = offset - 512;
+    tar_header_t last;
+    while (last_pos >= 0) {
+        if (lseek(tar_fd, last_pos, SEEK_SET) < 0){
+            fprintf(stderr, "lseek\n");
+            break;
+        }
+        if (read(tar_fd, &last, 512) != 512){
+            break;
+        }
+        if (isEOFBlock(&last) != 1){
+            break;
+        }
+        last_pos -= 512;
+    }
+
+    // On est sur le dernier vrai header ou archive vide
+    if (last_pos >= 0 && isEOFBlock(&last) != 1) {
+        // avancer après ce header + contenu
+        size_t file_size = TAR_INT(last.size);
+        off_t skip = 512 + ((file_size + 511) / 512) * 512;
+        if (lseek(tar_fd, last_pos + skip, SEEK_SET) < 0){
+            fprintf(stderr, "lseek\n");
+            return -2;
+        }
+    } else {
+        // archive vide
+        if (lseek(tar_fd, 0, SEEK_SET) < 0){
+            fprintf(stderr, "lseek\n");
+            return -2;
+        }
+    }
+
+    tar_header_t header;
+    memset(&header, 0, sizeof(header));
+    strcpy(header.name, filename);
+    snprintf(header.size, sizeof(header.size), "%011o", (unsigned int) len);
+    header.typeflag = REGTYPE;
+
+    memcpy(header.magic, "ustar\0", 6);
+    memcpy(header.version, TVERSION, 2);
+
+    memset(header.chksum, ' ', 8);
+    unsigned int sum = calculate_checksum(&header);
+    snprintf(header.chksum, 8, "%06o", sum);
+    header.chksum[6] = '\0'; 
+    header.chksum[7] = ' ';
+
+
+    if (write(tar_fd, &header, 512) != 512){
+        fprintf(stderr, "write\n");
+        return -2;
+    }
+    if (write(tar_fd, src, len) != (ssize_t)len){
+        fprintf(stderr, "write\n");
+        return -2;
+    }
+
+    size_t pad = (512 - (len % 512)) % 512;
+    if (pad) {
+        char zeros[512] = {0};
+        if (write(tar_fd, zeros, pad) != (ssize_t)pad){
+            fprintf(stderr, "write\n");
+            return -2;
+        }
+    }
+
+    // écrire 2 blocs EOF
+    char zeros[512] = {0};
+    if (write(tar_fd, zeros, 512) != 512){
+        fprintf(stderr, "write\n");
+        return -2;
+    }
+    if (write(tar_fd, zeros, 512) != 512){
+        fprintf(stderr, "write\n");
+        return -2;
+    }
+
+    return 0;
+}
+
+/**
+int add_file(int tar_fd, char *filename, uint8_t *src, size_t len) {
     if (exists(tar_fd, filename)) {
         return -1;
     }
@@ -406,3 +501,4 @@ int add_file(int tar_fd, char *filename, uint8_t *src, size_t len) {
 
     return 0;
 }
+*/
