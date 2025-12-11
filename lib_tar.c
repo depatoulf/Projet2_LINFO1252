@@ -62,7 +62,6 @@ int find_header(int tar_fd, char *path, tar_header_t *out) {
         }
         bytes_read = read(tar_fd, &header, 512);
         header_count++;
-
     }
     return 0;
 }
@@ -221,42 +220,29 @@ int is_symlink(int tar_fd, char *path) {
  *         -1 in case of error.
  */
 int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
-    /*
-    if (lseek(tar_fd, 0, SEEK_SET) < 0) {
-        fprintf(stderr, "lseek\n");
-        return -1;
-    }
-
-    tar_header_t header;
-    ssize_t bytes_read = read(tar_fd, &header, 512);
-    if (bytes_read != 512) {
-        fprintf(stderr, "read\n");
-        return -1;
-    }
-    if (isEOFBlock(&header) == 1){
-        *no_entries = 0;
-        return 1;
-    }
-    */
+    
     char real_path[256];
     char *root = "";
     if (path == NULL || path[0] == '\0') {
         strcpy(real_path, root);
     }
     else {
+        if (exists (tar_fd, path) < 0 ) {
+            return -1;
+        }
         if (exists(tar_fd, path) != 1 ) {
             return 0;
         }
         if (is_symlink(tar_fd, path)) {
             tar_header_t linked_header;
-            if (find_header(tar_fd, path, &linked_header) != 1) {
+            if (find_header(tar_fd, path, &linked_header) < 0) {
                 return -1;
             }
-            /*
-            if (find_header(tar_fd, linked_header.linkname, &linked_header) == 0) {
+
+            if (find_header(tar_fd, path, &linked_header) != 1) {
                 return 0;
             }
-            */
+        
             if (!exists(tar_fd, linked_header.linkname)) {
                 return -1;
             }
@@ -270,8 +256,6 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
             snprintf(real_path, sizeof(real_path), "%s/", path);
         } else {
             snprintf(real_path, sizeof(real_path), "%s", path);
-            /*strncpy(real_path, path, sizeof(real_path) - 1);
-            real_path[sizeof(real_path) - 1] = '\0';*/
         }
     }
     if (lseek(tar_fd, 0, SEEK_SET) < 0) {
@@ -281,19 +265,7 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
 
     int count = 0;
     tar_header_t header;
-    ssize_t bytes_read = read(tar_fd, &header, 512);
-    /*
-    if (bytes_read != 512) {
-        fprintf(stderr, "read\n");
-        return -1;
-    }
-    
-    if (isEOFBlock(&header) == 1){
-        *no_entries = 0;
-        return 1;
-    }
-    */
-    
+    ssize_t bytes_read = read(tar_fd, &header, 512);  
 
     int realpath_len = strlen(real_path);
     while (bytes_read == 512){
@@ -311,11 +283,7 @@ int list(int tar_fd, char *path, char **entries, size_t *no_entries) {
         if (realpath_len == 0 || strncmp(fullpath, real_path, realpath_len)==0){
             const char *rest = fullpath + realpath_len;
             if (strcmp(fullpath, real_path) != 0){
-                /*
-                if (rest[0]== '/' ){
-                    rest++;
-                }
-                */
+                
                 const char *slash = strchr(rest, '/');
                 if (slash == NULL || slash[1] == '\0') {
                     if (count < *no_entries){
