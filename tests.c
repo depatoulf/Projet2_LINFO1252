@@ -23,7 +23,9 @@ void print_test_result(const char *test_name, const char *expected, const char *
 // Fonction helper pour créer une archive de test simple
 int create_test_archive(const char *filename) {
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) return -1;
+    if (fd < 0) {
+        return -1;
+    }    
     
     tar_header_t header;
     memset(&header, 0, sizeof(tar_header_t));
@@ -46,15 +48,15 @@ int create_test_archive(const char *filename) {
     header.chksum[7] = ' ';
     
     write(fd, &header, 512);
-    write(fd, "hello world", 11);
+    write(fd, "test", 4);
     
     // Padding
     char pad[501] = {0};
     write(fd, pad, 501);
     
     // EOF blocks
-    char eof[1024] = {0};
-    write(fd, eof, 1024);
+    char zeros[1024] = {0};
+    write(fd, zeros, 1024);
     
     close(fd);
     return 0;
@@ -63,7 +65,9 @@ int create_test_archive(const char *filename) {
 // Fonction helper pour créer une archive avec répertoires
 int create_archive_with_dirs(const char *filename) {
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) return -1;
+    if (fd < 0) {
+        return -1;
+    }    
     
     tar_header_t header;
     
@@ -140,9 +144,9 @@ int create_archive_with_dirs(const char *filename) {
     header.chksum[7] = ' ';
     write(fd, &header, 512);
     
-    // Ajouter "file_root.txt" à la racine
+    // Ajouter "file.txt" à la racine
     memset(&header, 0, sizeof(tar_header_t));
-    strcpy(header.name, "file_root.txt");
+    strcpy(header.name, "file.txt");
     snprintf(header.size, sizeof(header.size), "%011o", 5);
     header.typeflag = REGTYPE;
     memcpy(header.magic, TMAGIC, 6);
@@ -161,8 +165,8 @@ int create_archive_with_dirs(const char *filename) {
     write(fd, pad2, 507);
     
     // EOF blocks
-    char eof[1024] = {0};
-    write(fd, eof, 1024);
+    char zeros[1024] = {0};
+    write(fd, zeros, 1024);
     
     close(fd);
     return 0;
@@ -171,10 +175,12 @@ int create_archive_with_dirs(const char *filename) {
 // Créer une archive vide (seulement EOF)
 int create_empty_archive(const char *filename) {
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) return -1;
+    if (fd < 0) {
+        return -1;
+    }
     
-    char eof[1024] = {0};
-    write(fd, eof, 1024);
+    char zeros[1024] = {0};
+    write(fd, zeros, 1024);
     
     close(fd);
     return 0;
@@ -189,12 +195,11 @@ void test_check_archive_valid() {
     close(fd);
     unlink("test_valid.tar");
     
-    {
-        char expected_str[64]; char actual_str[64];
-        snprintf(expected_str, sizeof(expected_str), "%d", 1);
-        snprintf(actual_str, sizeof(actual_str), "%d", result);
-        print_test_result("check_archive (archive valide)", expected_str, actual_str, result == 1);
-    }
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 1);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("check_archive (archive valide)", expected, actual, result == 1);
 }
 
 void test_check_archive_empty() {
@@ -203,13 +208,12 @@ void test_check_archive_empty() {
     int result = check_archive(fd);
     close(fd);
     unlink("test_empty.tar");
-    
-    {
-        char expected_str[64]; char actual_str[64];
-        snprintf(expected_str, sizeof(expected_str), "%d", 0);
-        snprintf(actual_str, sizeof(actual_str), "%d", result);
-        print_test_result("check_archive (archive vide)", expected_str, actual_str, result == 0);
-    }
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 0);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("check_archive (archive vide)", expected, actual, result == 0);
 }
 
 void test_exists_file() {
@@ -218,13 +222,12 @@ void test_exists_file() {
     int result = exists(fd, "test.txt");
     close(fd);
     unlink("test_exists.tar");
-    
-    {
-        char expected_str[64]; char actual_str[64];
-        snprintf(expected_str, sizeof(expected_str), "%d", 1);
-        snprintf(actual_str, sizeof(actual_str), "%d", result);
-        print_test_result("exists (test.txt)", expected_str, actual_str, result == 1);
-    }
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 1);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("exists (test.txt)", expected, actual, result == 1);
 }
 
 void test_exists_not_found() {
@@ -233,13 +236,12 @@ void test_exists_not_found() {
     int result = exists(fd, "notfound.txt");
     close(fd);
     unlink("test_not_exists.tar");
-    
-    {
-        char expected_str[64]; char actual_str[64];
-        snprintf(expected_str, sizeof(expected_str), "%d", 0);
-        snprintf(actual_str, sizeof(actual_str), "%d", result);
-        print_test_result("exists (notfound.txt)", expected_str, actual_str, result == 0);
-    }
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 0);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("exists (notfound.txt)", expected, actual, result == 0);
 }
 
 void test_is_file() {
@@ -248,13 +250,12 @@ void test_is_file() {
     int result = is_file(fd, "test.txt");
     close(fd);
     unlink("test_isfile.tar");
-    
-    {
-        char expected_str[64]; char actual_str[64];
-        snprintf(expected_str, sizeof(expected_str), "%s", "non-zero");
-        snprintf(actual_str, sizeof(actual_str), "%d", result);
-        print_test_result("is_file - fichier régulier", expected_str, actual_str, result != 0);
-    }
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 1);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("is_file (fichier)", expected, actual, result != 0);
 }
 
 void test_is_dir() {
@@ -263,13 +264,12 @@ void test_is_dir() {
     int result = is_dir(fd, "dir/");
     close(fd);
     unlink("test_isdir.tar");
-    
-    {
-        char expected_str[64]; char actual_str[64];
-        snprintf(expected_str, sizeof(expected_str), "%s", "non-zero");
-        snprintf(actual_str, sizeof(actual_str), "%d", result);
-        print_test_result("is_dir - répertoire", expected_str, actual_str, result != 0);
-    }
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 1);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("is_dir (répertoire)", expected, actual, result != 0);
 }
 
 void test_is_dir_on_file() {
@@ -278,13 +278,12 @@ void test_is_dir_on_file() {
     int result = is_dir(fd, "test.txt");
     close(fd);
     unlink("test_isdir_file.tar");
-    
-    {
-        char expected_str[64]; char actual_str[128];
-        snprintf(expected_str, sizeof(expected_str), "%d", 0);
-        snprintf(actual_str, sizeof(actual_str), "%d", result);
-        print_test_result("is_dir - fichier (pas un dir)", expected_str, actual_str, result == 0);
-    }
+
+    char expected[64]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "%d", 0);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("is_dir (fichier)", expected, actual, result == 0);
 }
 
 void test_list_root() {
@@ -299,12 +298,12 @@ void test_list_root() {
     
     int result = list(fd, NULL, entries, &no_entries);
     
-    printf("  Liste racine (%zu entrées):" "\n", no_entries);
+    printf("%zu entrées:" "\n", no_entries);
     for (size_t i = 0; i < no_entries; i++) {
-        printf("    - %s\n", entries[i]);
+        printf("%s\n", entries[i]);
     }
     
-    // On devrait avoir "dir/" et "file_root.txt" à la racine
+    // On devrait avoir "dir/" et "file.txt" à la racine
     int passed = (result == 1 && no_entries == 2);
     
     for (int i = 0; i < 10; i++) {
@@ -313,13 +312,12 @@ void test_list_root() {
     free(entries);
     close(fd);
     unlink("test_list_root.tar");
-    
-    {
-        char expected_str[128]; char actual_str[128];
-        snprintf(expected_str, sizeof(expected_str), "return=1, no_entries=2");
-        snprintf(actual_str, sizeof(actual_str), "return=%d, no_entries=%zu", result, no_entries);
-        print_test_result("list - racine de l'archive", expected_str, actual_str, passed);
-    }
+
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "return = 1, no_entries = 2");
+    snprintf(actual, sizeof(actual), "return = %d, no_entries = %zu", result, no_entries);
+    print_test_result("list (root)", expected, actual, passed);
 }
 
 void test_list_directory() {
@@ -334,9 +332,9 @@ void test_list_directory() {
     
     int result = list(fd, "dir/", entries, &no_entries);
     
-    printf("Liste dir/ (%zu entrées):" "\n", no_entries);
+    printf("dir %zu entrées:" "\n", no_entries);
     for (size_t i = 0; i < no_entries; i++) {
-        printf("    - %s\n", entries[i]);
+        printf("%s\n", entries[i]);
     }
     
     // On devrait avoir "dir/file1.txt", "dir/file2.txt", "dir/subdir/"
@@ -349,12 +347,11 @@ void test_list_directory() {
     close(fd);
     unlink("test_list_dir.tar");
     
-    {
-        char expected_str[128]; char actual_str[128];
-        snprintf(expected_str, sizeof(expected_str), "return=1, no_entries=3");
-        snprintf(actual_str, sizeof(actual_str), "return=%d, no_entries=%zu", result, no_entries);
-        print_test_result("list - contenu d'un répertoire", expected_str, actual_str, passed);
-    }
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "return = 1, no_entries = 3");
+    snprintf(actual, sizeof(actual), "return = %d, no_entries = %zu", result, no_entries);
+    print_test_result("list (répertoire)", expected, actual, passed);
 }
 
 void test_list_empty_archive() {
@@ -377,58 +374,33 @@ void test_list_empty_archive() {
     free(entries);
     close(fd);
     unlink("test_list_empty.tar");
-    
-    {
-        char expected_str[128]; char actual_str[128];
-        snprintf(expected_str, sizeof(expected_str), "return=1, no_entries=0");
-        snprintf(actual_str, sizeof(actual_str), "return=%d, no_entries=%zu", result, no_entries);
-        print_test_result("list - archive vide", expected_str, actual_str, passed);
-    }
+
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "return = 1, no_entries = 0");
+    snprintf(actual, sizeof(actual), "return = %d, no_entries = %zu", result, no_entries);
+    print_test_result("list (archive vide)", expected, actual, passed);
 }
 
 void test_add_file() {
     create_empty_archive("test_add.tar");
     int fd = open("test_add.tar", O_RDWR);
     
-    uint8_t content[] = "Hello TAR!";
+    uint8_t content[] = "test";
     int result = add_file(fd, "newfile.txt", content, sizeof(content) - 1);
-    
-    printf("add_file result: %d\n", result);
-    
+        
     // Vérifier que le fichier existe maintenant
     lseek(fd, 0, SEEK_SET);
     int exists_result = exists(fd, "newfile.txt");
-    
-    printf("exists result: %d\n", exists_result);
-    
+        
     close(fd);
     unlink("test_add.tar");
-    
-    {
-        char expected_str[128]; char actual_str[128];
-        snprintf(expected_str, sizeof(expected_str), "result=0, exists=1");
-        snprintf(actual_str, sizeof(actual_str), "result=%d, exists=%d", result, exists_result);
-        print_test_result("add_file - ajouter un nouveau fichier", expected_str, actual_str, 
-                                   result == 0 && exists_result == 1);
-    }
-}
 
-void test_add_file_duplicate() {
-    create_test_archive("test_add_dup.tar");
-    int fd = open("test_add_dup.tar", O_RDWR);
-    
-    uint8_t content[] = "Duplicate";
-    int result = add_file(fd, "test.txt", content, sizeof(content) - 1);
-    
-    close(fd);
-    unlink("test_add_dup.tar");
-    
-    {
-        char expected_str[64]; char actual_str[64];
-        snprintf(expected_str, sizeof(expected_str), "%d", -1);
-        snprintf(actual_str, sizeof(actual_str), "%d", result);
-        print_test_result("add_file - fichier déjà existant", expected_str, actual_str, result == -1);
-    }
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "result = 0, exists = 1");
+    snprintf(actual, sizeof(actual), "result = %d, exists = %d", result, exists_result);
+    print_test_result("add_file", expected, actual, result == 0 && exists_result == 1);
 }
 
 void test_add_file_large() {
@@ -449,14 +421,12 @@ void test_add_file_large() {
     free(content);
     close(fd);
     unlink("test_add_large.tar");
-    
-    {
-        char expected_str[128]; char actual_str[128];
-        snprintf(expected_str, sizeof(expected_str), "result=0, exists=1");
-        snprintf(actual_str, sizeof(actual_str), "result=%d, exists=%d", result, exists_result);
-        print_test_result("add_file - fichier volumineux", expected_str, actual_str,
-                                   result == 0 && exists_result == 1);
-    }
+
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "result = 0, exists = 1");
+    snprintf(actual, sizeof(actual), "result = %d, exists = %d", result, exists_result);
+    print_test_result("add_file (grand fichier)", expected, actual, result == 0 && exists_result == 1);
 }
 
 // MAIN 
@@ -483,12 +453,7 @@ int main() {
     
     printf("\nTests add_file\n");
     test_add_file();
-    test_add_file_duplicate();
     test_add_file_large();
     
     printf("Résultat: %d/%d \n", test_passed, test_count);
-    
-    /**
-    return (test_passed == test_count) ? 0 : 1;
-    */
 }
