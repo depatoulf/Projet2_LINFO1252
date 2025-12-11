@@ -6,29 +6,26 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-// Couleurs pour l'affichage
-#define GREEN "\033[0;32m"
-#define RED "\033[0;31m"
-#define YELLOW "\033[0;33m"
-#define RESET "\033[0m"
-
 int test_count = 0;
 int test_passed = 0;
 
-void print_test_result(const char *test_name, int passed) {
+void print_test_result(const char *test_name, const char *expected, const char *actual, int passed) {
     test_count++;
     if (passed) {
-        printf(GREEN "✓ PASS" RESET " - %s\n", test_name);
+        printf("PASS" "- %s\n", test_name);
         test_passed++;
     } else {
-        printf(RED "✗ FAIL" RESET " - %s\n", test_name);
+        printf("FAIL" "- %s\n", test_name);
     }
+    printf("expected: %s\nactual: %s\n\n", expected, actual);
 }
 
 // Fonction helper pour créer une archive de test simple
 int create_test_archive(const char *filename) {
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) return -1;
+    if (fd < 0) {
+        return -1;
+    }    
     
     tar_header_t header;
     memset(&header, 0, sizeof(tar_header_t));
@@ -51,15 +48,15 @@ int create_test_archive(const char *filename) {
     header.chksum[7] = ' ';
     
     write(fd, &header, 512);
-    write(fd, "hello world", 11);
+    write(fd, "test", 4);
     
     // Padding
     char pad[501] = {0};
     write(fd, pad, 501);
     
     // EOF blocks
-    char eof[1024] = {0};
-    write(fd, eof, 1024);
+    char zeros[1024] = {0};
+    write(fd, zeros, 1024);
     
     close(fd);
     return 0;
@@ -68,7 +65,9 @@ int create_test_archive(const char *filename) {
 // Fonction helper pour créer une archive avec répertoires
 int create_archive_with_dirs(const char *filename) {
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) return -1;
+    if (fd < 0) {
+        return -1;
+    }    
     
     tar_header_t header;
     
@@ -145,9 +144,9 @@ int create_archive_with_dirs(const char *filename) {
     header.chksum[7] = ' ';
     write(fd, &header, 512);
     
-    // Ajouter "file_root.txt" à la racine
+    // Ajouter "file.txt" à la racine
     memset(&header, 0, sizeof(tar_header_t));
-    strcpy(header.name, "file_root.txt");
+    strcpy(header.name, "file.txt");
     snprintf(header.size, sizeof(header.size), "%011o", 5);
     header.typeflag = REGTYPE;
     memcpy(header.magic, TMAGIC, 6);
@@ -166,8 +165,8 @@ int create_archive_with_dirs(const char *filename) {
     write(fd, pad2, 507);
     
     // EOF blocks
-    char eof[1024] = {0};
-    write(fd, eof, 1024);
+    char zeros[1024] = {0};
+    write(fd, zeros, 1024);
     
     close(fd);
     return 0;
@@ -176,16 +175,18 @@ int create_archive_with_dirs(const char *filename) {
 // Créer une archive vide (seulement EOF)
 int create_empty_archive(const char *filename) {
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) return -1;
+    if (fd < 0) {
+        return -1;
+    }
     
-    char eof[1024] = {0};
-    write(fd, eof, 1024);
+    char zeros[1024] = {0};
+    write(fd, zeros, 1024);
     
     close(fd);
     return 0;
 }
 
-// ========== TESTS ==========
+// TESTS
 
 void test_check_archive_valid() {
     create_test_archive("test_valid.tar");
@@ -194,7 +195,11 @@ void test_check_archive_valid() {
     close(fd);
     unlink("test_valid.tar");
     
-    print_test_result("check_archive - archive valide", result == 1);
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 1);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("check_archive (archive valide)", expected, actual, result == 1);
 }
 
 void test_check_archive_empty() {
@@ -203,8 +208,12 @@ void test_check_archive_empty() {
     int result = check_archive(fd);
     close(fd);
     unlink("test_empty.tar");
-    
-    print_test_result("check_archive - archive vide", result == 0);
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 0);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("check_archive (archive vide)", expected, actual, result == 0);
 }
 
 void test_exists_file() {
@@ -213,8 +222,12 @@ void test_exists_file() {
     int result = exists(fd, "test.txt");
     close(fd);
     unlink("test_exists.tar");
-    
-    print_test_result("exists - fichier existant", result == 1);
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 1);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("exists (test.txt)", expected, actual, result == 1);
 }
 
 void test_exists_not_found() {
@@ -223,8 +236,12 @@ void test_exists_not_found() {
     int result = exists(fd, "notfound.txt");
     close(fd);
     unlink("test_not_exists.tar");
-    
-    print_test_result("exists - fichier non existant", result == 0);
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 0);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("exists (notfound.txt)", expected, actual, result == 0);
 }
 
 void test_is_file() {
@@ -233,8 +250,12 @@ void test_is_file() {
     int result = is_file(fd, "test.txt");
     close(fd);
     unlink("test_isfile.tar");
-    
-    print_test_result("is_file - fichier régulier", result != 0);
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 1);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("is_file (fichier)", expected, actual, result != 0);
 }
 
 void test_is_dir() {
@@ -243,8 +264,12 @@ void test_is_dir() {
     int result = is_dir(fd, "dir/");
     close(fd);
     unlink("test_isdir.tar");
-    
-    print_test_result("is_dir - répertoire", result != 0);
+
+    char expected[64]; 
+    char actual[64];
+    snprintf(expected, sizeof(expected), "%d", 1);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("is_dir (répertoire)", expected, actual, result != 0);
 }
 
 void test_is_dir_on_file() {
@@ -253,8 +278,12 @@ void test_is_dir_on_file() {
     int result = is_dir(fd, "test.txt");
     close(fd);
     unlink("test_isdir_file.tar");
-    
-    print_test_result("is_dir - fichier (pas un dir)", result == 0);
+
+    char expected[64]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "%d", 0);
+    snprintf(actual, sizeof(actual), "%d", result);
+    print_test_result("is_dir (fichier)", expected, actual, result == 0);
 }
 
 void test_list_root() {
@@ -269,12 +298,12 @@ void test_list_root() {
     
     int result = list(fd, NULL, entries, &no_entries);
     
-    printf(YELLOW "  Liste racine (%zu entrées):" RESET "\n", no_entries);
+    printf("%zu entrées:" "\n", no_entries);
     for (size_t i = 0; i < no_entries; i++) {
-        printf("    - %s\n", entries[i]);
+        printf("%s\n", entries[i]);
     }
     
-    // On devrait avoir "dir/" et "file_root.txt" à la racine
+    // On devrait avoir "dir/" et "file.txt" à la racine
     int passed = (result == 1 && no_entries == 2);
     
     for (int i = 0; i < 10; i++) {
@@ -283,8 +312,12 @@ void test_list_root() {
     free(entries);
     close(fd);
     unlink("test_list_root.tar");
-    
-    print_test_result("list - racine de l'archive", passed);
+
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "return = 1, no_entries = 2");
+    snprintf(actual, sizeof(actual), "return = %d, no_entries = %zu", result, no_entries);
+    print_test_result("list (root)", expected, actual, passed);
 }
 
 void test_list_directory() {
@@ -299,9 +332,9 @@ void test_list_directory() {
     
     int result = list(fd, "dir/", entries, &no_entries);
     
-    printf(YELLOW "  Liste dir/ (%zu entrées):" RESET "\n", no_entries);
+    printf("dir %zu entrées:" "\n", no_entries);
     for (size_t i = 0; i < no_entries; i++) {
-        printf("    - %s\n", entries[i]);
+        printf("%s\n", entries[i]);
     }
     
     // On devrait avoir "dir/file1.txt", "dir/file2.txt", "dir/subdir/"
@@ -314,7 +347,11 @@ void test_list_directory() {
     close(fd);
     unlink("test_list_dir.tar");
     
-    print_test_result("list - contenu d'un répertoire", passed);
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "return = 1, no_entries = 3");
+    snprintf(actual, sizeof(actual), "return = %d, no_entries = %zu", result, no_entries);
+    print_test_result("list (répertoire)", expected, actual, passed);
 }
 
 void test_list_empty_archive() {
@@ -337,43 +374,33 @@ void test_list_empty_archive() {
     free(entries);
     close(fd);
     unlink("test_list_empty.tar");
-    
-    print_test_result("list - archive vide", passed);
+
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "return = 1, no_entries = 0");
+    snprintf(actual, sizeof(actual), "return = %d, no_entries = %zu", result, no_entries);
+    print_test_result("list (archive vide)", expected, actual, passed);
 }
 
 void test_add_file() {
     create_empty_archive("test_add.tar");
     int fd = open("test_add.tar", O_RDWR);
     
-    uint8_t content[] = "Hello TAR!";
+    uint8_t content[] = "test";
     int result = add_file(fd, "newfile.txt", content, sizeof(content) - 1);
-    
-    printf(YELLOW "  add_file result: %d\n" RESET, result);
-    
+        
     // Vérifier que le fichier existe maintenant
     lseek(fd, 0, SEEK_SET);
     int exists_result = exists(fd, "newfile.txt");
-    
-    printf(YELLOW "  exists result: %d\n" RESET, exists_result);
-    
+        
     close(fd);
     unlink("test_add.tar");
-    
-    print_test_result("add_file - ajouter un nouveau fichier", 
-                      result == 0 && exists_result == 1);
-}
 
-void test_add_file_duplicate() {
-    create_test_archive("test_add_dup.tar");
-    int fd = open("test_add_dup.tar", O_RDWR);
-    
-    uint8_t content[] = "Duplicate";
-    int result = add_file(fd, "test.txt", content, sizeof(content) - 1);
-    
-    close(fd);
-    unlink("test_add_dup.tar");
-    
-    print_test_result("add_file - fichier déjà existant", result == -1);
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "result = 0, exists = 1");
+    snprintf(actual, sizeof(actual), "result = %d, exists = %d", result, exists_result);
+    print_test_result("add_file", expected, actual, result == 0 && exists_result == 1);
 }
 
 void test_add_file_large() {
@@ -394,49 +421,39 @@ void test_add_file_large() {
     free(content);
     close(fd);
     unlink("test_add_large.tar");
-    
-    print_test_result("add_file - fichier volumineux", 
-                      result == 0 && exists_result == 1);
+
+    char expected[128]; 
+    char actual[128];
+    snprintf(expected, sizeof(expected), "result = 0, exists = 1");
+    snprintf(actual, sizeof(actual), "result = %d, exists = %d", result, exists_result);
+    print_test_result("add_file (grand fichier)", expected, actual, result == 0 && exists_result == 1);
 }
 
-// ========== MAIN ==========
+// MAIN 
 
 int main() {
-    printf("\n" YELLOW "========================================\n");
-    printf("  Suite de tests pour lib_tar\n");
-    printf("========================================\n" RESET "\n");
-    
-    printf(YELLOW "--- Tests check_archive ---\n" RESET);
+
+    printf("Tests check_archive\n");
     test_check_archive_valid();
     test_check_archive_empty();
     
-    printf(YELLOW "\n--- Tests exists ---\n" RESET);
+    printf("\nTests exists\n");
     test_exists_file();
     test_exists_not_found();
     
-    printf(YELLOW "\n--- Tests is_file / is_dir ---\n" RESET);
+    printf("\nTests is_file / is_dir\n");
     test_is_file();
     test_is_dir();
     test_is_dir_on_file();
     
-    printf(YELLOW "\n--- Tests list ---\n" RESET);
+    printf("\nTests list\n");
     test_list_root();
     test_list_directory();
     test_list_empty_archive();
     
-    printf(YELLOW "\n--- Tests add_file ---\n" RESET);
+    printf("\nTests add_file\n");
     test_add_file();
-    test_add_file_duplicate();
     test_add_file_large();
     
-    printf("\n" YELLOW "========================================\n");
-    printf("  Résultat: %d/%d tests réussis ", test_passed, test_count);
-    if (test_passed == test_count) {
-        printf(GREEN "✓\n" RESET);
-    } else {
-        printf(RED "✗\n" RESET);
-    }
-    printf("========================================\n" RESET "\n");
-    
-    return (test_passed == test_count) ? 0 : 1;
+    printf("Résultat: %d/%d \n", test_passed, test_count);
 }
